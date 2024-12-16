@@ -1,0 +1,50 @@
+{% extends 'app/layouts/base.html' %} {% block content %}
+<div class="row">
+    <div class="col-md-12 col-lg-6">
+        <h1 id="title">
+            Tổng hợp các mô hình trí tuệ nhân tạo và khoa học dữ liệu
+        </h1>
+        <p id="content" class="py-2">
+            Trang web tổng hợp các document, mô hình liên quan đến trí tuệ nhân tạo và khoa học dữ liệu
+        </p>
+    </div>
+    <div class="col-md-12 col-lg-6">
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow" id="card-1">
+                    <h1>Các mô hình nhận dạng</h1>
+                </div>
+                <div class="text-center">
+                    <a
+                        href="{% url 'app:services' %}"
+                        class="btn btn-info card-button mt-3"
+                        >Danh sách mô hình</a
+                    >
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="chatbot-toggler">
+        <span class="material-symbols-rounded">mode_comment</span>
+        <span class="material-symbols-outlined">close</span>
+      </button>
+      <div class="chatbot">
+        <header>
+          <h2>Chatbot</h2>
+          <span class="close-btn material-symbols-outlined">close</span>
+        </header>
+        <ul class="chatbox">
+          <li class="chat incoming">
+            <span class="material-symbols-outlined">smart_toy</span>
+            <p>Chào bạn 👋<br>Tôi có thể giúp gì cho bạn?</p>
+          </li>
+        </ul>
+        <div class="chat-input">
+          <textarea placeholder="Enter a message..." spellcheck="false" required></textarea>
+          <span id="send-btn" class="material-symbols-rounded">send</span>
+        </div>
+    </div>
+
+</div>
+{% endblock content %}

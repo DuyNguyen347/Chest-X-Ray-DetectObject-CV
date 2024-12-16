@@ -1,0 +1,45 @@
+<nav
+    class="navbar navbar-expand-lg navbar-dark shadow mb-5 py-3"
+    style="background-color: #3584eb"
+>
+    <div class="container">
+        <a class="navbar-brand" href="{% url 'app:home' %}">Lab AI</a>
+
+        <button
+            class="navbar-toggler"
+            type="button"
+            data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent"
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+        >
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link pl-5" href="{% url 'app:home' %}"
+                        >Trang chủ</a
+                    >
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link pl-5" href="{% url 'app:services' %}"
+                        >Các công cụ</a
+                    >
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link pl-5" href="{% url 'app:about' %}"
+                        >Giới thiệu</a
+                    >
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link pl-5" href="{% url 'app:contact' %}"
+                        >Liên hệ</a
+                    >
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
