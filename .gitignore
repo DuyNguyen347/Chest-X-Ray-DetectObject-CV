@@ -1,3 +1,4 @@
 /model/
 /media/
 *.env
+/Result/

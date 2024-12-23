@@ -203,7 +203,7 @@ footer {
 /* services */
 
 .category h1 {
-    font-size: 70px;
+    font-size: 50px;
     font-weight: bold;
     font-family: "Merriweather", cursive;
     letter-spacing: 3px;
@@ -322,6 +322,19 @@ footer {
     color: white;
     font-size: 25px;
     padding: 0 30px;
+}
+
+.image-text-overlay {
+    position: absolute;
+    top: 10px; /* Căn chỉnh văn bản xuống từ mép trên */
+    left: 10px; /* Căn chỉnh văn bản từ mép trái */
+    background-color: rgba(0, 0, 0, 0.5); /* Màu nền với độ trong suốt */
+    color: #fff; /* Màu chữ */
+    padding: 5px 10px; /* Khoảng cách trong của văn bản */
+    border-radius: 5px; /* Bo tròn góc */
+    font-size: 16px; /* Kích thước chữ */
+    font-weight: bold; /* Chữ đậm */
+    z-index: 10; /* Đảm bảo văn bản nằm trên ảnh */
 }
 
 #copyright {

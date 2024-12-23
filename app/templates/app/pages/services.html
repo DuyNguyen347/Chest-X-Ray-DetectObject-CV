@@ -1,6 +1,6 @@
 {% extends 'app/layouts/base.html' %} {% block content %}
 <div class="row category">
-    <h1>PHÂN LOẠI HÌNH ẢNH</h1>
+    <h1>CHẨN ĐOÁN HÌNH ẢNH</h1>
 </div>
 <form
     action="{% url 'app:services' %}"
@@ -10,12 +10,15 @@
     {% csrf_token %}
     <div class="row card-detail-row mb-5" id="img">
         <div class="col-12 mt-3 mb-1">
-            <h2>Phân loại hình ảnh bệnh Alzheimer </h2>
+            <h2>Chẩn đoán bệnh trên hình chụp X-Ray </h2>
         </div>
         <div class="col-md-12 col-lg-6 upload-box">
+            <div>Ảnh gốc</div>
             <div class="image">
                 {% if service == 'img' %}
                 <img src="{{url}}" alt="" class="active" />
+                {% elif service  == 'dicom' %}
+                <img src="{{dicom_image}}" alt="" class="active" />
                 {% endif %}
 
                 <div>
@@ -27,13 +30,14 @@
             </div>
         </div>
 
-        <div class="col-md-12 col-lg-6">
+        <div class="col-md-12 col-lg-6 upload-box">
+            <div>Kết quả dự đoán</div>
             <div class="image">
-                <div>
-                    {% if result %} {{result}}. {% else %} Kết quả sẽ được hiển thị khi chọn ảnh
-                    {%endif %}
-                    <strong></strong>
-                </div>
+                {% if encoded_img %}
+                    <img src="data:image/png;base64,{{ encoded_img }}" alt="Prediction Result" class="active">
+                {% else %}
+                    Kết quả sẽ được hiển thị khi chọn ảnh
+                {% endif %}
             </div>
         </div>
     </div>
