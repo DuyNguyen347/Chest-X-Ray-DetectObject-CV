@@ -27,12 +27,14 @@ import io
 import base64
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_voi_lut
-from time import sleep
-from PIL import ImageDraw
-import time
+import pydicom
+from pydicom.uid import ExplicitVRLittleEndian
+from pydicom.tag import Tag
+from pydicom.uid import ExplicitVRLittleEndian
+from django.conf import settings
 
 
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from django.views.decorators.csrf import csrf_exempt
 
 # from full_convmf_vn import ConvMF, Recommender
@@ -236,6 +238,16 @@ results_list = []
 index = 0
 batch_size = 4
 
+def check_pixel_data_encapsulation(dataset):
+    """Kiểm tra Pixel Data có được encapsulated hay không"""
+    try:
+        pixel_data_tag = Tag(0x7FE0, 0x0010)  # Tag của Pixel Data
+        if pixel_data_tag in dataset and dataset.file_meta.TransferSyntaxUID.is_compressed:
+            return True
+        return False
+    except AttributeError:
+        return False
+
 # Create your views here.
 def home(request):
     return render(request, 'app/pages/home.html')
@@ -253,11 +265,24 @@ def services(request):
         context['url'] = fileSystemStorage.url(uploaded_file)
         file_path = '.' + context['url']
 
+        filename_org = uploaded_file.name.split('.')[0]
+        is_dicom = False
 
         try:
             # DICOM file check
             dicom_data = pydicom.dcmread(file_path)
             print("DICOM file detected.", dicom_data)
+
+
+            org_BitsAllocated = dicom_data.BitsAllocated  
+            org_BitStored = dicom_data.BitsStored
+            org_HighBit = dicom_data.HighBit 
+            org_PixelRepresentation = dicom_data.PixelRepresentation
+
+            print('org_BitAllocated: ', org_BitsAllocated)
+            print('org_BitStored: ', org_BitStored)
+            print('org_HighBit: ', org_HighBit)
+            print('org_PixelRepresentation: ', org_PixelRepresentation)
 
             # for elem in dicom_data:
             #     print(f"{elem.keyword} - {elem.value}/n")
@@ -286,6 +311,7 @@ def services(request):
             # Convert DICOM to image
             # image = dicom_data.pixel_array
             image = cv2.cvtColor(im_array, cv2.COLOR_GRAY2RGB)  # Chuyển đổi sang RGB nếu cần
+            is_dicom = True
         except pydicom.errors.InvalidDicomError:
             print("Not a DICOM file, assuming standard image format.")
             # Đọc ảnh thông thường nếu không phải DICOM
@@ -322,53 +348,85 @@ def services(request):
 
 
         # save file dicom
-        boxes = prediction["instances"].pred_boxes.tensor.cpu().numpy()  # Tọa độ bounding box
-        classes = prediction["instances"].pred_classes.cpu().numpy()     # Lớp dự đoán
-        scores = prediction["instances"].scores.cpu().numpy()            # Xác suất
+        if is_dicom:
+            boxes = prediction["instances"].pred_boxes.tensor.cpu().numpy()  # Tọa độ bounding box
+            classes = prediction["instances"].pred_classes.cpu().numpy()     # Lớp dự đoán
+            scores = prediction["instances"].scores.cpu().numpy()            # Xác suất
 
-        # Nếu resize ảnh, tính lại tọa độ bounding box
-        scale_x = dicom_data.Columns / im_array.shape[1]
-        scale_y = dicom_data.Rows / im_array.shape[0]
-        boxes = boxes * [scale_x, scale_y, scale_x, scale_y]
+            # Nếu resize ảnh, tính lại tọa độ bounding box
+            scale_x = dicom_data.Columns / im_array.shape[1]
+            scale_y = dicom_data.Rows / im_array.shape[0]
+            boxes = boxes * [scale_x, scale_y, scale_x, scale_y]
 
-        # Vẽ bounding box lên ảnh gốc
-        image_with_boxes = data.copy()  # Dữ liệu pixel gốc từ DICOM
-        for box, cls, score in zip(boxes, classes, scores):
-            x1, y1, x2, y2 = map(int, box)
-            label = f"Class {cls} ({score:.2f})"
+            # Vẽ bounding box lên ảnh gốc
+            image_with_boxes = data.copy()  # Dữ liệu pixel gốc từ DICOM
+            for box, cls, score in zip(boxes, classes, scores):
+                x1, y1, x2, y2 = map(int, box)
+                label = f"{thing_classes[cls]} ({score:.2f})"
+                
+                # Vẽ bounding box
+                cv2.rectangle(image_with_boxes, (x1, y1), (x2, y2), (0, 255, 0), 6)
+                
+                # Thêm nhãn
+                cv2.putText(image_with_boxes, label, (x1, y1 - 15), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 255), 6)
+
+            # save to Result folder
+            # result_dir = "./Result"
+            # if not os.path.exists(result_dir):
+            #     os.makedirs(result_dir)
+
+            # # Lưu file DICOM đã chỉnh sửa
+            # dicom_file_path = os.path.join(result_dir, "modified3.dicom")
+
+            if dicom_data.file_meta.TransferSyntaxUID.is_compressed:
+                # If the original was compressed, we need to change to uncompressed
+                dicom_data.file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+
+            if dicom_data.BitsAllocated == 16:
+                # Chuyển đổi ảnh về 16-bit
+                image_with_boxes = image_with_boxes.astype(np.uint16)
+                image_with_boxes = (image_with_boxes / 255.0 * (2**16 - 1)).astype(np.uint16)
+
+                # Cập nhật PixelData
+                dicom_data.PixelData = image_with_boxes.tobytes()
+            else:
+                # Nếu là ảnh 8-bit
+                dicom_data.PixelData = image_with_boxes.tobytes()
+
+            # Cập nhật Rows, Columns
+            dicom_data.Rows, dicom_data.Columns = image_with_boxes.shape[:2]
+
+
+            dicom_data.Rows, dicom_data.Columns = image_with_boxes.shape[:2]
+            dicom_data.SamplesPerPixel = 1 if len(image_with_boxes.shape) == 2 else image_with_boxes.shape[2]
+            dicom_data.PhotometricInterpretation = "MONOCHROME2"  # Hoặc RGB nếu ảnh là màu
+
+            # dicom_data.BitsAllocated = 8  # hoặc 16 tùy thuộc vào định dạng ảnh
+            # dicom_data.BitsStored = 8  # hoặc 16
+            # dicom_data.HighBit = 7 if dicom_data.BitsStored == 8 else 15
+            # dicom_data.PixelRepresentation = 0  # 0: unsigned int, 1: signed int
+
+            # dicom_data.BitsAllocated = 16  # hoặc 16 tùy thuộc vào định dạng ảnh
+            # dicom_data.BitsStored = 14  # hoặc 16
+            # dicom_data.HighBit = 13
+            # dicom_data.PixelRepresentation = 0  # 0: unsigned int, 1: signed int
+
+            # Giữ nguyên các thông số từ file ban đầu
+            dicom_data.BitsAllocated = dicom_data.BitsAllocated  # Giữ nguyên
+            dicom_data.BitsStored = dicom_data.BitsStored  # Giữ nguyên
+            dicom_data.HighBit = dicom_data.HighBit  # Giữ nguyên
+            dicom_data.PixelRepresentation = dicom_data.PixelRepresentation  # Giữ nguyên (0: unsigned, 1: signed)
+
+            result_dir = os.path.join(settings.MEDIA_ROOT, 'dicom_results')
+            if not os.path.exists(result_dir):
+                os.makedirs(result_dir)
+                
+            filename = filename_org + "_RS.dicom"
+            dicom_file_path = os.path.join(result_dir, filename)
+            dicom_data.save_as(dicom_file_path)
             
-            # Vẽ bounding box
-            cv2.rectangle(image_with_boxes, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            
-            # Thêm nhãn
-            cv2.putText(image_with_boxes, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-        result_dir = "./Result"
-        if not os.path.exists(result_dir):
-            os.makedirs(result_dir)
-
-        # Lưu file DICOM đã chỉnh sửa
-        dicom_file_path = os.path.join(result_dir, "modified3.dicom")
-        dicom_data.PixelData = image_with_boxes.tobytes()
-
-
-        dicom_data.Rows, dicom_data.Columns = image_with_boxes.shape[:2]
-        dicom_data.SamplesPerPixel = 1 if len(image_with_boxes.shape) == 2 else image_with_boxes.shape[2]
-        dicom_data.PhotometricInterpretation = "MONOCHROME2"  # Hoặc RGB nếu ảnh là màu
-        dicom_data.BitsAllocated = 8  # hoặc 16 tùy thuộc vào định dạng ảnh
-        dicom_data.BitsStored = 8  # hoặc 16
-        dicom_data.HighBit = 7 if dicom_data.BitsStored == 8 else 15
-        dicom_data.PixelRepresentation = 0  # 0: unsigned int, 1: signed int
-
-        # Giữ nguyên các thông số từ file ban đầu
-        # dicom_data.BitsAllocated = dicom_data.BitsAllocated  # Giữ nguyên
-        # dicom_data.BitsStored = dicom_data.BitsStored  # Giữ nguyên
-        # dicom_data.HighBit = dicom_data.HighBit  # Giữ nguyên
-        # dicom_data.PixelRepresentation = dicom_data.PixelRepresentation  # Giữ nguyên (0: unsigned, 1: signed)
-
-
-        dicom_data.save_as(dicom_file_path)
-        print(f"Modified DICOM file saved at: {dicom_file_path}")
+            print(f"File saved at: {dicom_file_path}")  # Add this debug print
+            context['dicom_file'] = filename
     return render(request, 'app/pages/services.html', context)
 
 def about(request):
@@ -377,5 +435,22 @@ def about(request):
 def contact(request):
     return render(request, 'app/pages/contact.html')
 
-# chat bot view
+
+from django.http import FileResponse
+import os
+
+def download_dicom(request, filename):
+    """View to handle DICOM file downloads"""
+    try:
+        file_path = os.path.join(settings.MEDIA_ROOT, 'dicom_results', filename)
+        if os.path.exists(file_path):
+            response = FileResponse(open(file_path, 'rb'))
+            response['Content-Type'] = 'application/dicom'
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            raise Http404("File not found")
+    except Exception as e:
+        raise Http404(f"Error accessing file: {str(e)}")
+
 
