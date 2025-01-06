@@ -44,6 +44,8 @@
             <!-- Thêm nút tải file DICOM kết quả -->
             <div class="mt-3">
                 {% if service == 'dicom' and dicom_file %}
+                    <!-- Tạo url động dựa trên dicom_file, ví dụ nếu dicom_file = a.dicom thì url là: /download-dicom/a.dicom/  -->
+                    <!-- Lưu ý phải load custom_filter trước, code ở dòng 2 -->
                     <a href="{% url 'app:download_dicom' filename=dicom_file %}" 
                     class="btn btn-primary">
                         Tải file DICOM kết quả

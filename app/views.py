@@ -417,6 +417,9 @@ def services(request):
             dicom_data.HighBit = dicom_data.HighBit  # Giữ nguyên
             dicom_data.PixelRepresentation = dicom_data.PixelRepresentation  # Giữ nguyên (0: unsigned, 1: signed)
 
+            
+            dicom_data.SeriesInstanceUID = pydicom.uid.generate_uid()
+            dicom_data.SOPInstanceUID = pydicom.uid.generate_uid()
             result_dir = os.path.join(settings.MEDIA_ROOT, 'dicom_results')
             if not os.path.exists(result_dir):
                 os.makedirs(result_dir)
